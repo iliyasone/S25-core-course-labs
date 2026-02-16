@@ -1,0 +1,49 @@
+[project]
+dependencies = [
+  "fastapi>=0.129.0",
+  "pydantic-settings>=2.13.0",
+  "uvicorn>=0.41.0",
+]
+
+description = "DevOps course info service made by @iliyasone"
+name = "devops-python-info-service"
+readme = "README.md"
+requires-python = ">=3.14"
+version = "0.1.0"
+
+[dependency-groups]
+dev = [
+  "pyright>=1.1.408",
+  "ruff>=0.15.1",
+]
+
+[tool.pyright]
+typeCheckingMode = "standard"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+fixable = ["I"] # Explicitly set automatic fixes allowed from ruff
+select = [
+  "E", # pycodestyle checks conformity to style conventions in PEP 8. https://docs.astral.sh/ruff/rules/#pycodestyle-e-w
+  "PL", # pylint is a static code analyzer that checks for errors, code smells and offer fix suggestions. Pylint: https://docs.astral.sh/ruff/rules/#pylint-pl
+  "F", # pyflakes parses and analyzes source code to detects errors. It detects fewer issues than pylint but faster. https://docs.astral.sh/ruff/rules/#pyflakes-f
+  "I", # isort sorts imports alphabetically and groups them into relevant sections. https://docs.astral.sh/ruff/rules/#isort-i
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+section-order = [
+  "future",
+  "standard-library",
+  "third-party",
+  "first-party",
+  "local-folder",
+]
+split-on-trailing-comma = false
