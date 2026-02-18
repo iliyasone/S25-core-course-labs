@@ -107,3 +107,23 @@ uv run pyright
 uv run ruff check
 uv run ruff format
 ```
+
+## 8. Docker
+
+**Build locally:**
+```
+docker build -t <image-name> .
+```
+
+**Run a container:**
+```
+docker run -p <host-port>:<container-port> <image-name>
+```
+
+> 💡 hint: defaul `<container-port>` is 5000
+
+
+**Pull from Docker Hub:**
+```
+docker pull iliyasone/devops-python-info-service
+```
