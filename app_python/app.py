@@ -53,7 +53,7 @@ async def get_info(request: Request) -> dict[str, Any]:
     return {
         "service": {
             "name": "devops-python-info-service",
-            "version": "1.0.0",
+            "version": "2026.02",
             "description": "DevOps course info service made by @iliyasone",
             "framework": "FastAPI",
         },

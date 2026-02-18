@@ -1,5 +1,8 @@
 # DevOps Info Service
 
+[![codecov](https://codecov.io/github/iliyasone/S25-core-course-labs/graph/badge.svg?token=BZI76SRKNZ)](https://codecov.io/github/iliyasone/S25-core-course-labs)
+
+
 ## 1. Overview
 
 This service reports system information and health status.
@@ -106,6 +109,26 @@ Environment variables control application behavior:
 uv run pyright
 uv run ruff check
 uv run ruff format
+```
+
+### Snyk's dependency scan
+
+`snyk test` in this project uses `requirements.txt` as the scan target.
+
+```bash
+uv export --locked --format requirements.txt --output-file requirements.txt
+```
+
+Ensure `pip` is available once:
+
+```bash
+uv run python -m ensurepip --upgrade
+```
+
+Then run:
+
+```bash
+snyk test --file=requirements.txt --severity-threshold=low
 ```
 
 ## 8. Docker
