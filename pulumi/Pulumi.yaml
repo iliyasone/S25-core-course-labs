@@ -1,0 +1,10 @@
+name: devops-python-info-service
+description: DevOps course info service made by @iliyasone for retake
+runtime:
+  name: python
+  options:
+    toolchain: uv
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: python
