@@ -4,6 +4,7 @@ variable "zone"       { default = "us-central1-a" }
 
 variable "credentials_file" {
   description = "Path to GCP service account JSON key"
+  default     = "~/.config/gcloud/keys/my-service-account.json"
 }
 
 variable "ssh_user" {
