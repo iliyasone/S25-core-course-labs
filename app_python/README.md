@@ -70,16 +70,30 @@ source .venv/bin/activate
 uvicorn app:app --host 0.0.0.0 --port 5000 --reload
 ```
 
-## 5. API Endpoints
+## 5. Cloud VM (Pulumi)
 
+To spin up a GCP VM running this service:
+
+```bash
+cd pulumi
+pulumi up
+```
+
+After apply, `pulumi stack output` prints the public IP and SSH command.
+
+To tear it down:
+
+```bash
+pulumi destroy
+```
+
+> Requires a Pulumi account and GCP service account key. See `pulumi/` for details.
+
+## 6. API Endpoints
 ### GET /
-
 Returns comprehensive service and system information.
-
 ### GET /health
-
 Simple health check endpoint for Kubernetes probes and monitoring systems.
-
 **Response:**
 ```json
 {
@@ -88,64 +102,43 @@ Simple health check endpoint for Kubernetes probes and monitoring systems.
   "uptime_seconds": 3600
 }
 ```
-
-
-## 6. Configuration
-
+## 7. Configuration
 Environment variables control application behavior:
-
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `HOST` | `0.0.0.0` | Server host address |
 | `PORT` | `5000` | Server port |
 | `DEBUG` | `False` | Enable debug mode with auto-reload |
-
-
-## 7. Development
-
+## 8. Development
 ### Code formatting and linting
-
 ```bash
 uv run pyright
 uv run ruff check
 uv run ruff format
 ```
-
 ### Snyk's dependency scan
-
 `snyk test` in this project uses `requirements.txt` as the scan target.
-
 ```bash
 uv export --locked --format requirements.txt --output-file requirements.txt
 ```
-
 Ensure `pip` is available once:
-
 ```bash
 uv run python -m ensurepip --upgrade
 ```
-
 Then run:
-
 ```bash
 snyk test --file=requirements.txt --severity-threshold=low
 ```
-
-## 8. Docker
-
+## 9. Docker
 **Build locally:**
 ```
 docker build -t <image-name> .
 ```
-
 **Run a container:**
 ```
 docker run -p <host-port>:<container-port> <image-name>
 ```
-
-> 💡 hint: defaul `<container-port>` is 5000
-
-
+> 💡 hint: default `<container-port>` is 5000
 **Pull from Docker Hub:**
 ```
 docker pull iliyasone/devops-python-info-service
