@@ -1,2 +1,7 @@
 test
 .vscode
+*.retry
+__pycache__/
+vault-password
+ansible/.vault_pass
+ansible/inventory/*.pyc

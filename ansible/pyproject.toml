@@ -1,0 +1,9 @@
+[project]
+dependencies = [
+  "ansible>=10.7.0",
+  "google-auth>=2.48.0",
+  "requests>=2.32.5",
+]
+name = "ansible-config"
+requires-python = ">=3.10"
+version = "0.1.0"

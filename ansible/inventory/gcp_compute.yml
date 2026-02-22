@@ -1,0 +1,15 @@
+plugin: google.cloud.gcp_compute
+auth_kind: serviceaccount
+projects:
+  - s25-devops-retake
+filters:
+  - status = RUNNING
+hostnames:
+  - name
+vars_prefix: gcp_
+compose:
+  ansible_host: networkInterfaces[0].accessConfigs[0].natIP
+  ansible_user: '"ubuntu"'
+  ansible_python_interpreter: '"/usr/bin/python3"'
+groups:
+  webservers: true

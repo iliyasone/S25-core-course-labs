@@ -1,0 +1,41 @@
+---
+- name: Install prerequisites for Docker repository management
+  ansible.builtin.apt:
+    name: "{{ docker_prereq_packages }}"
+    state: present
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Add Docker apt repository (deb822) + signing key
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: [deb]
+    uris: ["{{ docker_repo_uri }}"]
+    suites: ["{{ ansible_distribution_release }}"]
+    components: ["{{ docker_repo_component }}"]
+    signed_by: "{{ docker_gpg_key_url }}"
+    state: present
+  register: docker_repo
+
+- name: Update apt cache if repository changed
+  ansible.builtin.apt:
+    update_cache: yes
+  when: docker_repo.changed
+
+- name: Install Docker Engine packages and Python Docker SDK
+  ansible.builtin.apt:
+    name: "{{ docker_packages + docker_python_packages }}"
+    state: present
+  notify: restart docker
+
+- name: Ensure Docker service is started and enabled
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Add user to docker group
+  ansible.builtin.user:
+    name: "{{ docker_user }}"
+    groups: docker
+    append: yes

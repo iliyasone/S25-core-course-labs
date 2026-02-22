@@ -76,10 +76,23 @@ To spin up a GCP VM running this service:
 
 ```bash
 cd pulumi
+uv sync
 pulumi up
 ```
 
 After apply, `pulumi stack output` prints the public IP and SSH command.
+
+For Ansible dynamic inventory with the official GCP plugin:
+
+```bash
+cd ansible
+export GCP_SERVICE_ACCOUNT_FILE="$HOME/.config/gcloud/keys/my-service-account.json"
+uv run ansible-inventory --graph
+uv run ansible webservers -m ping
+uv run ansible-vault view group_vars/all.yml --vault-password-file ../vault-password
+```
+
+`ansible/` uses Ansible as a Python dependency managed by `uv`, so `uv run ...` is the intended way to execute it.
 
 To tear it down:
 
@@ -87,7 +100,7 @@ To tear it down:
 pulumi destroy
 ```
 
-> Requires a Pulumi account and GCP service account key. See `pulumi/` for details.
+> Requires a Pulumi account and GCP service account key. See `pulumi/` and `ansible/` for details.
 
 ## 6. API Endpoints
 ### GET /
