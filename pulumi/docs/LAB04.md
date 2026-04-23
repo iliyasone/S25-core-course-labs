@@ -74,7 +74,19 @@ vpc = gcp.compute.Network("lab04-vpc",
 )
 ```
 
-Config is set via CLI and stored in `Pulumi.dev.yaml` (only the project ID is committed — credentials are passed via the `GOOGLE_CREDENTIALS` environment variable).
+Config is set via CLI and stored in `Pulumi.dev.yaml` with stack-specific values such as `gcp:project` and `gcp:credentials`.
+
+#### `pulumi/Pulumi.dev.yaml`
+
+This stack file is local-only and is ignored by git, but it contains the values Pulumi needs to run against GCP:
+
+```yaml
+config:
+  gcp:project: s25-devops-retake
+  gcp:credentials: /home/iliyasone/.config/gcloud/keys/my-service-account.json
+```
+
+If you recreate the stack on another machine, set the same values with `pulumi config set` or create the file manually.
 
 ### Terminal output
 
