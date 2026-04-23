@@ -37,6 +37,8 @@ jobs:
     defaults:
       run:
         working-directory: ansible
+    env:
+      ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -81,7 +83,7 @@ jobs:
       run:
         working-directory: ansible
     env:
-      GCP_SERVICE_ACCOUNT_CONTENTS: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+      ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -104,6 +106,7 @@ jobs:
       - name: Prepare Ansible secrets
         env:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           mkdir -p "$HOME/.ssh"
@@ -112,12 +115,14 @@ jobs:
           chmod 600 "$HOME/.ssh/id_ci"
 
           printf '%s' "$ANSIBLE_VAULT_PASSWORD" > "$RUNNER_TEMP/vault-pass"
+          printf '%s' "$GCP_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/gcp-service-account.json"
           echo "ANSIBLE_VAULT_PASSWORD_FILE=$RUNNER_TEMP/vault-pass" >> "$GITHUB_ENV"
           echo "ANSIBLE_PRIVATE_KEY_FILE=$HOME/.ssh/id_ci" >> "$GITHUB_ENV"
+          echo "GCP_SERVICE_ACCOUNT_FILE=$RUNNER_TEMP/gcp-service-account.json" >> "$GITHUB_ENV"
 
       - name: Resolve current target from GCP inventory
         run: |
-          INVENTORY_JSON="$(uv run ansible-inventory --list)"
+          INVENTORY_JSON="$(uv run ansible-inventory -i inventory/gcp_compute.yml --list)"
           INVENTORY_HOST="$(printf '%s' "$INVENTORY_JSON" | jq -r '.webservers.hosts[0]')"
           TARGET_HOST="$(printf '%s' "$INVENTORY_JSON" | jq -r "._meta.hostvars[\"${INVENTORY_HOST}\"].ansible_host")"
 
@@ -135,7 +140,7 @@ jobs:
           echo "TARGET_HOST=$TARGET_HOST" >> "$GITHUB_ENV"
 
       - name: Run full convergence playbook
-        run: uv run ansible-playbook playbooks/site.yml
+        run: uv run ansible-playbook -i inventory/gcp_compute.yml playbooks/site.yml
 
       - name: Verify deployment from the runner
         run: |
