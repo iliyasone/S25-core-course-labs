@@ -106,7 +106,6 @@ jobs:
       - name: Prepare Ansible secrets
         env:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           mkdir -p "$HOME/.ssh"
@@ -115,32 +114,43 @@ jobs:
           chmod 600 "$HOME/.ssh/id_ci"
 
           printf '%s' "$ANSIBLE_VAULT_PASSWORD" > "$RUNNER_TEMP/vault-pass"
-          printf '%s' "$GCP_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/gcp-service-account.json"
           echo "ANSIBLE_VAULT_PASSWORD_FILE=$RUNNER_TEMP/vault-pass" >> "$GITHUB_ENV"
           echo "ANSIBLE_PRIVATE_KEY_FILE=$HOME/.ssh/id_ci" >> "$GITHUB_ENV"
-          echo "GCP_SERVICE_ACCOUNT_FILE=$RUNNER_TEMP/gcp-service-account.json" >> "$GITHUB_ENV"
 
-      - name: Resolve current target from GCP inventory
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: s25-devops-retake
+
+      - name: Resolve current target from GCP
         run: |
-          INVENTORY_JSON="$(uv run ansible-inventory -i inventory/gcp_compute.yml --list)"
-          INVENTORY_HOST="$(printf '%s' "$INVENTORY_JSON" | jq -r '.webservers.hosts[0]')"
-          TARGET_HOST="$(printf '%s' "$INVENTORY_JSON" | jq -r "._meta.hostvars[\"${INVENTORY_HOST}\"].ansible_host")"
-
-          if [ -z "$INVENTORY_HOST" ] || [ "$INVENTORY_HOST" = "null" ]; then
-            echo "No host was discovered in the webservers group" >&2
-            exit 1
-          fi
+          TARGET_HOST="$(gcloud compute instances list \
+            --project='s25-devops-retake' \
+            --filter='status=RUNNING AND name=lab04-vm' \
+            --format='value(networkInterfaces[0].accessConfigs[0].natIP)' \
+            | head -n 1)"
 
           if [ -z "$TARGET_HOST" ] || [ "$TARGET_HOST" = "null" ]; then
-            echo "No ansible_host value was discovered for $INVENTORY_HOST" >&2
+            echo "No running target VM IP was discovered from GCP" >&2
             exit 1
           fi
 
           ssh-keyscan -H "$TARGET_HOST" >> "$HOME/.ssh/known_hosts"
+          cat > "$RUNNER_TEMP/hosts.ini" <<EOF
+          [webservers]
+          lab04-vm ansible_host=$TARGET_HOST ansible_user=ubuntu ansible_python_interpreter=/usr/bin/python3
+          EOF
+          echo "ANSIBLE_RUNTIME_INVENTORY=$RUNNER_TEMP/hosts.ini" >> "$GITHUB_ENV"
           echo "TARGET_HOST=$TARGET_HOST" >> "$GITHUB_ENV"
 
       - name: Run full convergence playbook
-        run: uv run ansible-playbook -i inventory/gcp_compute.yml playbooks/site.yml
+        run: uv run ansible-playbook -i "$ANSIBLE_RUNTIME_INVENTORY" playbooks/site.yml
 
       - name: Verify deployment from the runner
         run: |

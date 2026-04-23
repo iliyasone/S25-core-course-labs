@@ -240,16 +240,16 @@ The deployment workflow uses:
 
 No secret contains the VM hostname.
 
-The runner resolves the target host at runtime with:
+The runner resolves the target host at runtime with `gcloud`:
 
 ```bash
-uv run ansible-inventory --list | jq ...
+gcloud compute instances list --project s25-devops-retake --filter 'status=RUNNING AND name=lab04-vm'
 ```
 
-Then runs:
+Then it writes a temporary runtime inventory and runs:
 
 ```bash
-uv run ansible-playbook playbooks/site.yml
+uv run ansible-playbook -i "$ANSIBLE_RUNTIME_INVENTORY" playbooks/site.yml
 ```
 
 Observed local convergence run for the same path:
