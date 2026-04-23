@@ -1,0 +1,143 @@
+name: Ansible Deployment
+
+on:
+  workflow_call:
+    secrets:
+      ANSIBLE_VAULT_PASSWORD:
+        required: true
+      GCP_SERVICE_ACCOUNT_JSON:
+        required: true
+      SSH_PRIVATE_KEY:
+        required: true
+  push:
+    branches: [ master ]
+    paths:
+      - "ansible/**"
+      - "!ansible/docs/**"
+      - ".github/workflows/ansible-deploy.yml"
+  pull_request:
+    branches: [ master ]
+    paths:
+      - "ansible/**"
+      - "!ansible/docs/**"
+      - ".github/workflows/ansible-deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ansible-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Ansible lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ansible
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: |
+            ansible/pyproject.toml
+            ansible/uv.lock
+
+      - name: Install controller dependencies
+        run: uv sync --locked
+
+      - name: Install required Ansible collections
+        run: uv run ansible-galaxy collection install -r collections/requirements.yml
+
+      - name: Prepare Vault password file
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          printf '%s' "$ANSIBLE_VAULT_PASSWORD" > "$RUNNER_TEMP/vault-pass"
+          echo "ANSIBLE_VAULT_PASSWORD_FILE=$RUNNER_TEMP/vault-pass" >> "$GITHUB_ENV"
+
+      - name: Run ansible-lint
+        run: uv run --with ansible-lint ansible-lint playbooks/*.yml roles
+
+      - name: Run syntax checks
+        run: |
+          uv run ansible-playbook -i inventory/hosts.ini --syntax-check playbooks/provision.yml
+          uv run ansible-playbook -i inventory/hosts.ini --syntax-check playbooks/deploy.yml
+          uv run ansible-playbook -i inventory/hosts.ini --syntax-check playbooks/site.yml
+
+  deploy:
+    name: Deploy via dynamic GCP inventory
+    needs: lint
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ansible
+    env:
+      GCP_SERVICE_ACCOUNT_CONTENTS: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: |
+            ansible/pyproject.toml
+            ansible/uv.lock
+
+      - name: Install controller dependencies
+        run: uv sync --locked
+
+      - name: Install required Ansible collections
+        run: uv run ansible-galaxy collection install -r collections/requirements.yml
+
+      - name: Prepare Ansible secrets
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ci"
+          chmod 600 "$HOME/.ssh/id_ci"
+
+          printf '%s' "$ANSIBLE_VAULT_PASSWORD" > "$RUNNER_TEMP/vault-pass"
+          echo "ANSIBLE_VAULT_PASSWORD_FILE=$RUNNER_TEMP/vault-pass" >> "$GITHUB_ENV"
+          echo "ANSIBLE_PRIVATE_KEY_FILE=$HOME/.ssh/id_ci" >> "$GITHUB_ENV"
+
+      - name: Resolve current target from GCP inventory
+        run: |
+          INVENTORY_JSON="$(uv run ansible-inventory --list)"
+          INVENTORY_HOST="$(printf '%s' "$INVENTORY_JSON" | jq -r '.webservers.hosts[0]')"
+          TARGET_HOST="$(printf '%s' "$INVENTORY_JSON" | jq -r "._meta.hostvars[\"${INVENTORY_HOST}\"].ansible_host")"
+
+          if [ -z "$INVENTORY_HOST" ] || [ "$INVENTORY_HOST" = "null" ]; then
+            echo "No host was discovered in the webservers group" >&2
+            exit 1
+          fi
+
+          if [ -z "$TARGET_HOST" ] || [ "$TARGET_HOST" = "null" ]; then
+            echo "No ansible_host value was discovered for $INVENTORY_HOST" >&2
+            exit 1
+          fi
+
+          ssh-keyscan -H "$TARGET_HOST" >> "$HOME/.ssh/known_hosts"
+          echo "TARGET_HOST=$TARGET_HOST" >> "$GITHUB_ENV"
+
+      - name: Run full convergence playbook
+        run: uv run ansible-playbook playbooks/site.yml
+
+      - name: Verify deployment from the runner
+        run: |
+          curl -fsS "http://$TARGET_HOST:5000/" > /dev/null
+          curl -fsS "http://$TARGET_HOST:5000/health"

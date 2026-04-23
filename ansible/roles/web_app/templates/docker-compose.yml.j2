@@ -1,0 +1,22 @@
+# Compose schema reference: {{ web_app_docker_compose_version }}
+services:
+  {{ web_app_service_name }}:
+    image: {{ web_app_docker_image_ref | to_json }}
+    container_name: {{ web_app_name | to_json }}
+    ports:
+      - "{{ web_app_port }}:{{ web_app_internal_port }}"
+    environment:
+{% if web_app_environment | length == 0 %}
+      {}
+{% else %}
+{% for key, value in web_app_environment | dictsort %}
+      {{ key }}: {{ value | to_json }}
+{% endfor %}
+{% endif %}
+    restart: {{ web_app_restart_policy | to_json }}
+    networks:
+      - web_app
+
+networks:
+  web_app:
+    name: {{ (web_app_name ~ "-network") | to_json }}

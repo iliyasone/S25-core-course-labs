@@ -1,41 +1,80 @@
 ---
-- name: Install prerequisites for Docker repository management
-  ansible.builtin.apt:
-    name: "{{ docker_prereq_packages }}"
-    state: present
-    update_cache: yes
-    cache_valid_time: 3600
+# Installation and access configuration are separated so the expensive parts stay taggable.
+- name: Install Docker engine and CLI plugins
+  become: true
+  tags:
+    - docker
+    - docker_install
+  block:
+    - name: Install prerequisites for Docker repository management
+      ansible.builtin.apt:
+        name: "{{ docker_prereq_packages }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
 
-- name: Add Docker apt repository (deb822) + signing key
-  ansible.builtin.deb822_repository:
-    name: docker
-    types: [deb]
-    uris: ["{{ docker_repo_uri }}"]
-    suites: ["{{ ansible_distribution_release }}"]
-    components: ["{{ docker_repo_component }}"]
-    signed_by: "{{ docker_gpg_key_url }}"
-    state: present
-  register: docker_repo
+    - name: Add Docker apt repository
+      ansible.builtin.deb822_repository:
+        name: docker
+        types: [deb]
+        uris: ["{{ docker_repo_uri }}"]
+        suites: ["{{ ansible_distribution_release }}"]
+        components: ["{{ docker_repo_component }}"]
+        signed_by: "{{ docker_gpg_key_url }}"
+        state: present
 
-- name: Update apt cache if repository changed
-  ansible.builtin.apt:
-    update_cache: yes
-  when: docker_repo.changed
+    - name: Install Docker engine packages and Python SDK
+      ansible.builtin.apt:
+        name: "{{ docker_packages + docker_python_packages }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      notify: restart docker
+  rescue:
+    - name: Wait before retrying Docker repository bootstrap
+      ansible.builtin.pause:
+        seconds: 10
 
-- name: Install Docker Engine packages and Python Docker SDK
-  ansible.builtin.apt:
-    name: "{{ docker_packages + docker_python_packages }}"
-    state: present
-  notify: restart docker
+    - name: Retry Docker apt repository configuration
+      ansible.builtin.deb822_repository:
+        name: docker
+        types: [deb]
+        uris: ["{{ docker_repo_uri }}"]
+        suites: ["{{ ansible_distribution_release }}"]
+        components: ["{{ docker_repo_component }}"]
+        signed_by: "{{ docker_gpg_key_url }}"
+        state: present
 
-- name: Ensure Docker service is started and enabled
-  ansible.builtin.service:
-    name: docker
-    state: started
-    enabled: yes
+    - name: Retry Docker apt cache refresh
+      ansible.builtin.apt:
+        update_cache: true
 
-- name: Add user to docker group
-  ansible.builtin.user:
-    name: "{{ docker_user }}"
-    groups: docker
-    append: yes
+    - name: Retry Docker engine package installation
+      ansible.builtin.apt:
+        name: "{{ docker_packages + docker_python_packages }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      notify: restart docker
+  always:
+    - name: Gather service facts after Docker role execution
+      ansible.builtin.service_facts:
+
+    - name: Ensure Docker service is enabled and started
+      ansible.builtin.service:
+        name: "{{ docker_service_name }}"
+        state: started
+        enabled: true
+      when: "'docker.service' in ansible_facts.services"
+
+- name: Configure Docker access
+  become: true
+  tags:
+    - docker
+    - docker_config
+  block:
+    - name: Add primary user to docker group
+      ansible.builtin.user:
+        name: "{{ docker_user }}"
+        groups: docker
+        append: true

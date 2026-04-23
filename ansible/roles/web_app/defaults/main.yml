@@ -1,0 +1,33 @@
+---
+web_app_dockerhub_login_enabled: "{{ dockerhub_login_enabled | default(false) }}"
+web_app_dockerhub_username: "{{ dockerhub_username | default('iliyasone') }}"
+web_app_dockerhub_password: "{{ dockerhub_password | default('') }}"
+web_app_dockerhub_registry_url: "{{ dockerhub_registry_url | default('https://index.docker.io/v1/') }}"
+
+web_app_name: "{{ app_name | default('devops-python-info-service') }}"
+web_app_service_name: "{{ app_service_name | default(web_app_name) }}"
+web_app_docker_image: "{{ docker_image | default(web_app_dockerhub_username ~ '/' ~ web_app_name) }}"
+web_app_docker_tag: "{{ docker_tag | default('latest') }}"
+web_app_docker_image_ref: "{{ web_app_docker_image }}:{{ web_app_docker_tag }}"
+
+web_app_port: "{{ app_port | default(5000) }}"
+web_app_internal_port: "{{ app_internal_port | default(5000) }}"
+web_app_restart_policy: "{{ app_restart_policy | default('unless-stopped') }}"
+web_app_wait_timeout: "{{ app_wait_timeout | default(60) }}"
+web_app_compose_project_dir: "{{ compose_project_dir | default('/opt/' ~ web_app_name) }}"
+web_app_docker_compose_version: "{{ docker_compose_version | default('3.8') }}"
+
+# Double-gated wipe: the variable enables deletion, the dedicated tag selects it.
+web_app_wipe: false
+
+web_app_healthcheck_url: "{{ app_healthcheck_url | default('http://127.0.0.1:' ~ (web_app_port | string) ~ '/health') }}"
+
+web_app_environment: >-
+  {{
+    app_environment
+    | default({
+      'HOST': '0.0.0.0',
+      'PORT': web_app_internal_port | string,
+      'DEBUG': 'false',
+    })
+  }}

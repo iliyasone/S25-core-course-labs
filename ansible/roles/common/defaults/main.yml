@@ -7,3 +7,7 @@ common_packages:
   - htop
 
 common_timezone: "UTC"
+
+common_managed_users:
+  - name: ubuntu
+    shell: /bin/bash

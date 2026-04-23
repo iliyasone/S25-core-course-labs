@@ -123,3 +123,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  ansible_deploy:
+    name: Redeploy with Ansible
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    uses: ./.github/workflows/ansible-deploy.yml
+    secrets: inherit

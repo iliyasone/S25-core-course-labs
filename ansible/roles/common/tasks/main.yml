@@ -1,14 +1,55 @@
 ---
-- name: Update apt cache
-  ansible.builtin.apt:
-    update_cache: yes
-    cache_valid_time: 3600
+# Base OS preparation is split into blocks so packages and users stay independently runnable.
+- name: Manage common packages
+  become: true
+  tags:
+    - common
+    - packages
+  block:
+    - name: Refresh apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
 
-- name: Install common packages
-  ansible.builtin.apt:
-    name: "{{ common_packages }}"
-    state: present
+    - name: Install common packages
+      ansible.builtin.apt:
+        name: "{{ common_packages }}"
+        state: present
+  rescue:
+    - name: Repair apt cache after failed update
+      ansible.builtin.command: apt-get update --fix-missing  # noqa: command-instead-of-module
+      changed_when: false
 
-- name: Set timezone
+    - name: Retry common package installation
+      ansible.builtin.apt:
+        name: "{{ common_packages }}"
+        state: present
+        update_cache: true
+  always:
+    - name: Record common package block completion
+      ansible.builtin.copy:
+        dest: /tmp/ansible-common-role.log
+        content: "common role package block completed\n"
+        mode: "0644"
+
+- name: Configure timezone
   community.general.timezone:
     name: "{{ common_timezone }}"
+  become: true
+  tags:
+    - common
+
+- name: Manage baseline users
+  become: true
+  tags:
+    - common
+    - users
+  block:
+    - name: Ensure managed users exist
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        shell: "{{ item.shell | default('/bin/bash') }}"
+        state: present
+      loop: "{{ common_managed_users }}"
+      loop_control:
+        label: "{{ item.name }}"

@@ -1,5 +1,6 @@
 ---
 docker_user: ubuntu
+docker_service_name: docker
 
 docker_repo_uri: "https://download.docker.com/linux/ubuntu"
 docker_gpg_key_url: "https://download.docker.com/linux/ubuntu/gpg"
@@ -10,6 +11,7 @@ docker_packages:
   - docker-ce-cli
   - containerd.io
   - docker-buildx-plugin
+  - docker-compose-plugin
 
 # Needed if you will use Ansible's Docker modules (docker_container, etc.)
 docker_python_packages:

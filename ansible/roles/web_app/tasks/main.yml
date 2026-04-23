@@ -1,0 +1,104 @@
+---
+# Wipe tasks stay separate so clean reinstall and wipe-only flows use the same logic.
+- name: Include wipe tasks
+  ansible.builtin.include_tasks: wipe.yml
+  tags:
+    - web_app_wipe
+
+- name: Determine whether this run is wipe-only
+  ansible.builtin.set_fact:
+    web_app_wipe_only: "{{ web_app_wipe | bool and 'web_app_wipe' in (ansible_run_tags | default([])) }}"
+  tags:
+    - always
+
+- name: Deploy application with Docker Compose
+  become: true
+  when: not web_app_wipe_only | bool
+  tags:
+    - always
+    - web_app
+    - app_deploy
+    - compose
+  block:
+    - name: Log in to Docker Hub
+      community.docker.docker_login:
+        username: "{{ web_app_dockerhub_username }}"
+        password: "{{ web_app_dockerhub_password }}"
+        registry_url: "{{ web_app_dockerhub_registry_url }}"
+      when:
+        - web_app_dockerhub_login_enabled | bool
+        - web_app_dockerhub_username | length > 0
+        - web_app_dockerhub_password | length > 0
+      no_log: true
+
+    - name: Create application directory
+      ansible.builtin.file:
+        path: "{{ web_app_compose_project_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Inspect legacy standalone container
+      community.docker.docker_container_info:
+        name: "{{ web_app_name }}"
+      register: web_app_legacy_container
+      failed_when: false
+
+    - name: Remove legacy standalone container before Compose migration
+      community.docker.docker_container:
+        name: "{{ web_app_name }}"
+        state: absent
+      when:
+        - web_app_legacy_container.exists | default(false)
+        - >-
+          (
+            (
+              (
+                web_app_legacy_container.container | default({})
+              ).Config | default({})
+            ).Labels | default({})
+          ).get("com.docker.compose.project", "") != web_app_name
+
+    - name: Template Docker Compose definition
+      ansible.builtin.template:
+        src: docker-compose.yml.j2
+        dest: "{{ web_app_compose_project_dir }}/docker-compose.yml"
+        mode: "0644"
+
+    - name: Start application stack with Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ web_app_compose_project_dir }}"
+        project_name: "{{ web_app_name }}"
+        files:
+          - docker-compose.yml
+        pull: always
+        recreate: auto
+        remove_orphans: true
+        state: present
+        wait: true
+        wait_timeout: "{{ web_app_wait_timeout }}"
+
+    - name: Wait for application port to become reachable
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ web_app_port }}"
+        timeout: "{{ web_app_wait_timeout }}"
+
+    - name: Verify health endpoint from the VM
+      ansible.builtin.uri:
+        url: "{{ web_app_healthcheck_url }}"
+        status_code: 200
+        return_content: true
+      register: web_app_healthcheck
+      changed_when: false
+
+    - name: Assert healthy application response
+      ansible.builtin.assert:
+        that:
+          - web_app_healthcheck.json.status == "healthy"
+        fail_msg: "Application health endpoint did not return healthy status"
+  rescue:
+    - name: Report failed Compose deployment context
+      ansible.builtin.debug:
+        msg: "Deployment failed for {{ web_app_name }} in {{ web_app_compose_project_dir }}"
