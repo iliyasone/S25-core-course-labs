@@ -1,0 +1,99 @@
+version: "3.8"
+
+services:
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: loki
+    command: -config.file=/etc/loki/config.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+    labels:
+      logging: "promtail"
+      app: "loki"
+      environment: "development"
+    networks:
+      - logging
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail
+    command: -config.file=/etc/promtail/config.yml
+    ports:
+      - "9080:9080"
+    volumes:
+      - ./promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      logging: "promtail"
+      app: "promtail"
+      environment: "development"
+    networks:
+      - logging
+    depends_on:
+      loki:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:12.3.1
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    labels:
+      logging: "promtail"
+      app: "grafana"
+      environment: "development"
+    networks:
+      - logging
+    depends_on:
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  app-python:
+    image: devops-python-info-service:lab07
+    build:
+      context: ../app_python
+    container_name: devops-python-info-service
+    ports:
+      - "8000:5000"
+    environment:
+      APP_NAME: "devops-python-info-service"
+      APP_VERSION: "2026.04"
+      HOST: "0.0.0.0"
+      PORT: "5000"
+      LOG_LEVEL: "INFO"
+    labels:
+      logging: "promtail"
+      app: "devops-python-info-service"
+      environment: "development"
+    networks:
+      - logging
+
+networks:
+  logging:
+    name: lab07-logging
+
+volumes:
+  loki-data:
+  grafana-data:

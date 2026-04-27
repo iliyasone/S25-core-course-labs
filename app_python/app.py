@@ -11,7 +11,7 @@ import socket
 import time
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -45,30 +45,15 @@ settings = Settings()
 class JSONFormatter(logging.Formatter):
     """Format logs as JSON for Loki/Promtail ingestion."""
 
-    _reserved_attrs = {
-        "args",
-        "asctime",
-        "created",
-        "exc_info",
-        "exc_text",
-        "filename",
-        "funcName",
-        "levelname",
-        "levelno",
-        "lineno",
-        "module",
-        "msecs",
-        "message",
-        "msg",
-        "name",
-        "pathname",
-        "process",
-        "processName",
-        "relativeCreated",
-        "stack_info",
-        "thread",
-        "threadName",
-    }
+    empty_record: ClassVar[logging.LogRecord] = logging.LogRecord(
+        name="",
+        level=0,
+        pathname="",
+        lineno=0,
+        msg="",
+        args=(),
+        exc_info=None,
+    )
 
     def format(self, record: logging.LogRecord) -> str:
         log_record: dict[str, Any] = {
@@ -85,7 +70,9 @@ class JSONFormatter(logging.Formatter):
             log_record["exception"] = self.formatException(record.exc_info)
 
         for key, value in record.__dict__.items():
-            if key not in self._reserved_attrs and key not in log_record:
+            # fields in empty records are techinal Python object fields, 
+            # not what we actually want to log
+            if key not in self.empty_record.__dict__ and key not in log_record:
                 log_record[key] = value
 
         return json.dumps(log_record, default=str, separators=(",", ":"))
