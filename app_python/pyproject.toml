@@ -9,7 +9,7 @@ description = "DevOps course info service made by @iliyasone"
 name = "devops-python-info-service"
 readme = "README.md"
 requires-python = ">=3.14"
-version = "2026.02"
+version = "2026.04"
 
 [dependency-groups]
 lint = [

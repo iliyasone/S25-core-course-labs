@@ -1,10 +1,12 @@
+import json
 import socket as socket_module
 from datetime import datetime
+from logging import LogRecord
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app import app
+from app import JSONFormatter, app, settings
 
 
 @pytest.fixture()
@@ -21,8 +23,8 @@ def test_get_root_ok_and_structure(client: TestClient):
         assert key in data
 
     assert data["service"]["framework"] == "FastAPI"
-    assert isinstance(data["service"]["name"], str)
-    assert isinstance(data["service"]["version"], str)
+    assert data["service"]["name"] == settings.app_name
+    assert data["service"]["version"] == settings.app_version
 
     assert isinstance(data["system"]["hostname"], str)
     assert isinstance(data["system"]["platform"], str)
@@ -101,3 +103,30 @@ def test_internal_error_handler_returns_json(
     assert data["error"] == "Internal Server Error"
     assert "message" in data
     assert "boom" in data["message"]
+
+
+def test_json_formatter_outputs_required_fields():
+    record = LogRecord(
+        name="test-logger",
+        level=20,
+        pathname=__file__,
+        lineno=1,
+        msg="hello",
+        args=(),
+        exc_info=None,
+    )
+    record.method = "GET"
+    record.path = "/health"
+    record.status_code = 200
+
+    formatted = JSONFormatter().format(record)
+    data = json.loads(formatted)
+
+    assert data["timestamp"].endswith("Z")
+    assert data["level"] == "INFO"
+    assert data["logger"] == "test-logger"
+    assert data["app_name"] == settings.app_name
+    assert data["message"] == "hello"
+    assert data["method"] == "GET"
+    assert data["path"] == "/health"
+    assert data["status_code"] == 200  # noqa: PLR2004
