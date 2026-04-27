@@ -70,7 +70,7 @@ class JSONFormatter(logging.Formatter):
             log_record["exception"] = self.formatException(record.exc_info)
 
         for key, value in record.__dict__.items():
-            # fields in empty records are techinal Python object fields, 
+            # fields in empty records are technical Python object fields,
             # not what we actually want to log
             if key not in self.empty_record.__dict__ and key not in log_record:
                 log_record[key] = value
