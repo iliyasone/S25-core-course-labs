@@ -58,14 +58,12 @@ knowledge, or create a clearer domain abstraction.
 
 ### Architecture
 
-Avoid substantial architectural changes without explicit approval.
-
 Stick to the existing code style.
 
 ## Python Style
 
 Never use `from __future__ import annotations`; Python 3.14 already has lazy
-annotations.
+annotations by default.
 
 Never use `Optional`; use `T | None`.
 
@@ -81,19 +79,6 @@ narrow `pyright: ignore[...]` comment on that line instead.
 
 The Python service currently emits JSON logs only. Keep `JSONFormatter` based on
 the standard `logging` module unless the user asks for another logging package.
-
-`JSONFormatter.empty_record` is the baseline for filtering standard
-`logging.LogRecord` attributes. Do not reintroduce a hand-maintained reserved
-attribute list for formatter serialization.
-
-Application log records should include runtime facts the app knows when it logs:
-request method, path, status code, duration, client IP, exceptions, and similar
-context.
-
-Infrastructure labels belong outside the app. For Loki, Docker Compose and
-Promtail own indexed stream labels such as `app` and `environment`. The default
-Python `APP_NAME` value and the default Loki `app` label should stay equal:
-`devops-python-info-service`.
 
 ## Execution
 

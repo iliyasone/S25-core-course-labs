@@ -122,6 +122,11 @@ Environment variables control application behavior:
 | `HOST` | `0.0.0.0` | Server host address |
 | `PORT` | `5000` | Server port |
 | `DEBUG` | `False` | Enable debug mode with auto-reload |
+| `LOG_LEVEL` | `INFO` | Application and uvicorn log level |
+
+Logs are rendered as readable console output when stderr is a TTY. When logs are
+redirected or collected by container logging, they are emitted as JSON for
+Promtail/Loki ingestion.
 ## 8. Development
 ### Code formatting and linting
 ```bash

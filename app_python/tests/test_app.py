@@ -1,12 +1,19 @@
+import io
 import json
+import re
 import socket as socket_module
 from datetime import datetime
-from logging import LogRecord
 
 import pytest
+import structlog
 from fastapi.testclient import TestClient
 
-from app import JSONFormatter, app, settings
+from app import app, configure_logging, settings
+
+
+class TTYBuffer(io.StringIO):
+    def isatty(self) -> bool:
+        return True
 
 
 @pytest.fixture()
@@ -105,26 +112,46 @@ def test_internal_error_handler_returns_json(
     assert "boom" in data["message"]
 
 
-def test_json_formatter_outputs_required_fields():
-    record = LogRecord(
-        name="test-logger",
-        level=20,
-        pathname=__file__,
-        lineno=1,
-        msg="hello",
-        args=(),
-        exc_info=None,
-    )
-    record.method = "GET"
-    record.path = "/health"
-    record.status_code = 200
+def test_structlog_console_output_includes_required_fields():
+    output = TTYBuffer()
+    configure_logging(output)
 
-    formatted = JSONFormatter().format(record)
-    data = json.loads(formatted)
+    try:
+        structlog.get_logger("test-logger").info(
+            "hello", method="GET", path="/health", status_code=200
+        )
+        stderr = output.getvalue()
+    finally:
+        configure_logging()
+
+    stderr = re.sub(r"\x1b\[[0-9;]*m", "", stderr)
+
+    assert "hello" in stderr
+    assert "info" in stderr
+    assert "test-logger" in stderr
+    assert settings.app_name in stderr
+    assert "method=GET" in stderr
+    assert "path=/health" in stderr
+    assert "status_code=200" in stderr
+
+
+def test_structlog_json_output_includes_required_fields():
+    output = io.StringIO()
+    configure_logging(output)
+
+    try:
+        structlog.get_logger("test-json-logger").info(
+            "hello", method="GET", path="/health", status_code=200
+        )
+        stderr = output.getvalue()
+    finally:
+        configure_logging()
+
+    data = json.loads(stderr)
 
     assert data["timestamp"].endswith("Z")
-    assert data["level"] == "INFO"
-    assert data["logger"] == "test-logger"
+    assert data["level"] == "info"
+    assert data["logger"] == "test-json-logger"
     assert data["app_name"] == settings.app_name
     assert data["message"] == "hello"
     assert data["method"] == "GET"

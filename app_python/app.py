@@ -1,18 +1,16 @@
-"""
-DevOps Info Service
-Main application module
-"""
+"""DevOps Info Service main application module."""
 
-import json
 import logging
 import os
 import platform
 import socket
+import sys
 import time
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from typing import Any, ClassVar
+from typing import Any, TextIO
 
+import structlog
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
@@ -42,46 +40,60 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-class JSONFormatter(logging.Formatter):
-    """Format logs as JSON for Loki/Promtail ingestion."""
+def add_app_name(
+    logger: logging.Logger, method_name: str, event_dict: structlog.typing.EventDict
+) -> structlog.typing.EventDict:
+    event_dict["app_name"] = settings.app_name
+    return event_dict
 
-    empty_record: ClassVar[logging.LogRecord] = logging.LogRecord(
-        name="",
-        level=0,
-        pathname="",
-        lineno=0,
-        msg="",
-        args=(),
-        exc_info=None,
+
+def drop_color_message(
+    logger: logging.Logger, method_name: str, event_dict: structlog.typing.EventDict
+) -> structlog.typing.EventDict:
+    event_dict.pop("color_message", None)
+    return event_dict
+
+
+def configure_logging(stream: TextIO | None = None) -> None:
+    """Configure application and uvicorn loggers through structlog."""
+    log_stream = stream or sys.stderr
+    shared_processors: list[structlog.typing.Processor] = [
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.ExtraAdder(),
+        drop_color_message,
+        add_app_name,
+        structlog.processors.TimeStamper(fmt="iso", utc=True, key="timestamp"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+    ]
+
+    if log_stream.isatty():
+        renderer = structlog.dev.ConsoleRenderer(colors=True, event_key="message")
+    else:
+        renderer: structlog.typing.Processor = structlog.processors.JSONRenderer()
+
+    formatter = structlog.stdlib.ProcessorFormatter(
+        foreign_pre_chain=shared_processors,
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            structlog.processors.EventRenamer(to="message"),
+            renderer,
+        ],
     )
 
-    def format(self, record: logging.LogRecord) -> str:
-        log_record: dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(record.created, timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z"),
-            "level": record.levelname,
-            "logger": record.name,
-            "app_name": settings.app_name,
-            "message": record.getMessage(),
-        }
+    handler = logging.StreamHandler(log_stream)
+    handler.setFormatter(formatter)
 
-        if record.exc_info:
-            log_record["exception"] = self.formatException(record.exc_info)
-
-        for key, value in record.__dict__.items():
-            # fields in empty records are technical Python object fields,
-            # not what we actually want to log
-            if key not in self.empty_record.__dict__ and key not in log_record:
-                log_record[key] = value
-
-        return json.dumps(log_record, default=str, separators=(",", ":"))
-
-
-def configure_logging() -> None:
-    """Configure application and uvicorn loggers to emit JSON only."""
-    handler = logging.StreamHandler()
-    handler.setFormatter(JSONFormatter())
+    structlog.configure(
+        processors=[
+            *shared_processors,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
 
     log_level = settings.log_level.upper()
     for logger_name in ("", "uvicorn", "uvicorn.error", "uvicorn.access"):
@@ -92,7 +104,7 @@ def configure_logging() -> None:
 
 
 configure_logging()
-logger = logging.getLogger(settings.app_name)
+logger = structlog.get_logger(settings.app_name)
 
 
 START_TIME = datetime.now(timezone.utc)
@@ -172,17 +184,15 @@ async def log_http_request(
         "client_ip": client_ip,
     }
 
-    logger.info("http_request_started", extra=context)
+    logger.info("http_request_started", **context)
     response = await call_next(request)
     duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
     logger.info(
         "http_request_finished",
-        extra={
-            **context,
-            "status_code": response.status_code,
-            "duration_ms": duration_ms,
-        },
+        **context,
+        status_code=response.status_code,
+        duration_ms=duration_ms,
     )
     return response
 
@@ -202,11 +212,9 @@ async def health():
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception(
         "unhandled_exception",
-        extra={
-            "method": request.method,
-            "path": request.url.path,
-            "client_ip": request.client.host if request.client else None,
-        },
+        method=request.method,
+        path=request.url.path,
+        client_ip=request.client.host if request.client else None,
     )
     return JSONResponse(
         status_code=500,
@@ -220,12 +228,10 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 if __name__ == "__main__":
     logger.info(
         "app_startup",
-        extra={
-            "host": settings.host,
-            "port": settings.port,
-            "debug": settings.debug,
-            "app_version": settings.app_version,
-        },
+        host=settings.host,
+        port=settings.port,
+        debug=settings.debug,
+        app_version=settings.app_version,
     )
     uvicorn.run(
         "app:app",
