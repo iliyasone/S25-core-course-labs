@@ -16,6 +16,10 @@ web_app_restart_policy: "{{ app_restart_policy | default('unless-stopped') }}"
 web_app_wait_timeout: "{{ app_wait_timeout | default(60) }}"
 web_app_compose_project_dir: "{{ compose_project_dir | default('/opt/' ~ web_app_name) }}"
 web_app_docker_compose_version: "{{ docker_compose_version | default('3.8') }}"
+web_app_labels:
+  logging: "promtail"
+  app: "{{ web_app_name }}"
+  environment: "{{ app_environment_name | default('production') }}"
 
 # Double-gated wipe: the variable enables deletion, the dedicated tag selects it.
 web_app_wipe: false

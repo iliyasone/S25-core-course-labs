@@ -14,6 +14,10 @@ services:
 {% endfor %}
 {% endif %}
     restart: {{ web_app_restart_policy | to_json }}
+    labels:
+{% for key, value in web_app_labels | dictsort %}
+      {{ key }}: {{ value | to_json }}
+{% endfor %}
     networks:
       - web_app
 

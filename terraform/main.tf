@@ -32,7 +32,7 @@ resource "google_compute_firewall" "allow_ssh_http" {
 
   allow {
     protocol = "tcp"
-    ports    = ["22", "80", "5000"]
+    ports    = ["22", "80", "3000", "5000"]
   }
 
   source_ranges = ["0.0.0.0/0"]

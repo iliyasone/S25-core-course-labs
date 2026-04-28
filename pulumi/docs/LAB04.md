@@ -16,7 +16,7 @@ I chose **Google Cloud Platform (GCP)** — free tier `e2-micro`, and I already 
 Resources created (both Terraform and Pulumi):
 - VPC network (`lab04-vpc`)
 - Subnet (`lab04-subnet`, `10.0.1.0/24`)
-- Firewall rule — TCP ports 22, 80, 5000 (`lab04-allow-ssh-http`)
+- Firewall rule — TCP ports 22, 80, 3000, 5000 (`lab04-allow-ssh-http`)
 - Compute instance (`lab04-vm`)
 
 ![GCP free tier confirmation](screenshots/10-google-console-no-fee.png)

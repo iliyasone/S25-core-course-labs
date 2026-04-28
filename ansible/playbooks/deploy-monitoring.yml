@@ -1,12 +1,9 @@
 ---
-- name: Deploy application and monitoring
+- name: Deploy monitoring stack
   hosts: webservers
   become: true
 
   roles:
-    - role: web_app
-      tags:
-        - web_app
     - role: monitoring
       tags:
         - monitoring

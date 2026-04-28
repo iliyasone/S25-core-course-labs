@@ -1,0 +1,93 @@
+---
+- name: Validate Grafana admin credentials
+  ansible.builtin.assert:
+    that:
+      - monitoring_grafana_admin_user | length > 0
+      - monitoring_grafana_admin_password | length >= 16
+      - monitoring_grafana_admin_password != "admin"
+    fail_msg: "Set grafana_admin_password in Ansible Vault before deploying monitoring."
+  no_log: true
+
+- name: Create monitoring directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ monitoring_project_dir }}"
+    - "{{ monitoring_project_dir }}/loki"
+    - "{{ monitoring_project_dir }}/promtail"
+    - "{{ monitoring_project_dir }}/grafana/provisioning/datasources"
+    - "{{ monitoring_project_dir }}/grafana/provisioning/dashboards"
+    - "{{ monitoring_project_dir }}/grafana/dashboards"
+
+- name: Template monitoring configuration
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ monitoring_project_dir }}/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - src: docker-compose.yml.j2
+      dest: docker-compose.yml
+    - src: loki-config.yml.j2
+      dest: loki/config.yml
+    - src: promtail-config.yml.j2
+      dest: promtail/config.yml
+    - src: grafana-datasource.yml.j2
+      dest: grafana/provisioning/datasources/loki.yml
+    - src: grafana-dashboard-provider.yml.j2
+      dest: grafana/provisioning/dashboards/default.yml
+    - src: lab07-dashboard.json.j2
+      dest: grafana/dashboards/lab07-logs.json
+
+- name: Start monitoring stack with Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_project_dir }}"
+    project_name: "{{ monitoring_project_name }}"
+    files:
+      - docker-compose.yml
+    pull: always
+    recreate: auto
+    remove_orphans: true
+    state: present
+    wait: true
+    wait_timeout: "{{ monitoring_wait_timeout }}"
+
+- name: Wait for Loki port to become reachable
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ monitoring_loki_port }}"
+    timeout: "{{ monitoring_wait_timeout }}"
+
+- name: Wait for Grafana port to become reachable
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ monitoring_grafana_port }}"
+    timeout: "{{ monitoring_wait_timeout }}"
+
+- name: Verify Loki readiness
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ monitoring_loki_port }}/ready"
+    status_code: 200
+    return_content: true
+  register: monitoring_loki_ready
+  changed_when: false
+
+- name: Verify Grafana health
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ monitoring_grafana_port }}/api/health"
+    status_code: 200
+    return_content: true
+  register: monitoring_grafana_health
+  changed_when: false
+
+- name: Assert monitoring services are healthy
+  ansible.builtin.assert:
+    that:
+      - "'ready' in monitoring_loki_ready.content"
+      - monitoring_grafana_health.json.database == "ok"
+    fail_msg: "Monitoring stack did not become healthy"

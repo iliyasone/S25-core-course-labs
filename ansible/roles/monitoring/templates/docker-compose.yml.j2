@@ -1,17 +1,18 @@
+# Compose schema reference: 3.8
 services:
   loki:
-    image: grafana/loki:3.0.0
+    image: grafana/loki:{{ monitoring_loki_version }}
     container_name: loki
     command: -config.file=/etc/loki/config.yml
     ports:
-      - "3100:3100"
+      - "{{ monitoring_loki_port }}:3100"
     volumes:
       - ./loki/config.yml:/etc/loki/config.yml:ro
       - loki-data:/loki
     labels:
       logging: "promtail"
       app: "loki"
-      environment: "development"
+      environment: {{ monitoring_environment_name | to_json }}
     networks:
       - logging
     healthcheck:
@@ -23,18 +24,18 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1.00"
-          memory: 1G
+          cpus: {{ monitoring_loki_cpu_limit | to_json }}
+          memory: {{ monitoring_loki_memory_limit | to_json }}
         reservations:
-          cpus: "0.50"
-          memory: 512M
+          cpus: {{ monitoring_loki_cpu_reservation | to_json }}
+          memory: {{ monitoring_loki_memory_reservation | to_json }}
 
   promtail:
-    image: grafana/promtail:3.0.0
+    image: grafana/promtail:{{ monitoring_promtail_version }}
     container_name: promtail
     command: -config.file=/etc/promtail/config.yml
     ports:
-      - "9080:9080"
+      - "{{ monitoring_promtail_port }}:9080"
     volumes:
       - ./promtail/config.yml:/etc/promtail/config.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
@@ -42,7 +43,7 @@ services:
     labels:
       logging: "promtail"
       app: "promtail"
-      environment: "development"
+      environment: {{ monitoring_environment_name | to_json }}
     networks:
       - logging
     depends_on:
@@ -51,21 +52,21 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.50"
-          memory: 256M
+          cpus: {{ monitoring_promtail_cpu_limit | to_json }}
+          memory: {{ monitoring_promtail_memory_limit | to_json }}
         reservations:
-          cpus: "0.10"
-          memory: 128M
+          cpus: {{ monitoring_promtail_cpu_reservation | to_json }}
+          memory: {{ monitoring_promtail_memory_reservation | to_json }}
 
   grafana:
-    image: grafana/grafana:12.3.1
+    image: grafana/grafana:{{ monitoring_grafana_version }}
     container_name: grafana
     ports:
-      - "3000:3000"
+      - "{{ monitoring_grafana_port }}:3000"
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
-      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
-      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in the shell}"
+      GF_SECURITY_ADMIN_USER: {{ monitoring_grafana_admin_user | to_json }}
+      GF_SECURITY_ADMIN_PASSWORD: {{ monitoring_grafana_admin_password | to_json }}
       GF_SECURITY_ALLOW_EMBEDDING: "true"
     volumes:
       - grafana-data:/var/lib/grafana
@@ -74,7 +75,7 @@ services:
     labels:
       logging: "promtail"
       app: "grafana"
-      environment: "development"
+      environment: {{ monitoring_environment_name | to_json }}
     networks:
       - logging
     depends_on:
@@ -89,43 +90,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.50"
-          memory: 512M
+          cpus: {{ monitoring_grafana_cpu_limit | to_json }}
+          memory: {{ monitoring_grafana_memory_limit | to_json }}
         reservations:
-          cpus: "0.25"
-          memory: 256M
-
-  app-python:
-    image: devops-python-info-service:lab07
-    build:
-      context: ../app_python
-    container_name: devops-python-info-service
-    ports:
-      - "8000:5000"
-    environment:
-      APP_NAME: "devops-python-info-service"
-      APP_VERSION: "2026.04"
-      HOST: "0.0.0.0"
-      PORT: "5000"
-      LOG_LEVEL: "INFO"
-    labels:
-      logging: "promtail"
-      app: "devops-python-info-service"
-      environment: "development"
-    networks:
-      - logging
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 256M
-        reservations:
-          cpus: "0.10"
-          memory: 128M
+          cpus: {{ monitoring_grafana_cpu_reservation | to_json }}
+          memory: {{ monitoring_grafana_memory_reservation | to_json }}
 
 networks:
   logging:
-    name: lab07-logging
+    name: {{ monitoring_project_name | to_json }}
 
 volumes:
   loki-data:

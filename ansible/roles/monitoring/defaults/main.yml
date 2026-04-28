@@ -1,0 +1,34 @@
+---
+monitoring_project_name: lab07-monitoring
+monitoring_project_dir: /opt/lab07-monitoring
+monitoring_environment_name: production
+monitoring_wait_timeout: 120
+
+monitoring_loki_version: 3.0.0
+monitoring_promtail_version: 3.0.0
+monitoring_grafana_version: 12.3.1
+
+monitoring_loki_port: 3100
+monitoring_promtail_port: 9080
+monitoring_grafana_port: 3000
+
+monitoring_loki_retention_period: 168h
+monitoring_loki_schema: v13
+
+monitoring_grafana_admin_user: "{{ grafana_admin_user | default('admin') }}"
+monitoring_grafana_admin_password: "{{ grafana_admin_password | default('') }}"
+
+monitoring_loki_cpu_limit: "1.00"
+monitoring_loki_memory_limit: 1G
+monitoring_loki_cpu_reservation: "0.50"
+monitoring_loki_memory_reservation: 512M
+
+monitoring_promtail_cpu_limit: "0.50"
+monitoring_promtail_memory_limit: 256M
+monitoring_promtail_cpu_reservation: "0.10"
+monitoring_promtail_memory_reservation: 128M
+
+monitoring_grafana_cpu_limit: "0.50"
+monitoring_grafana_memory_limit: 512M
+monitoring_grafana_cpu_reservation: "0.25"
+monitoring_grafana_memory_reservation: 256M
