@@ -102,6 +102,7 @@ jobs:
               - '.github/workflows/python-ci.yml'
             deploy:
               - 'app_python/**'
+              - '.github/workflows/ansible-deploy.yml'
               - 'ansible/ansible.cfg'
               - 'ansible/pyproject.toml'
               - 'ansible/uv.lock'
