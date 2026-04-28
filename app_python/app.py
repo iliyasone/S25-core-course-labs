@@ -15,6 +15,7 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
@@ -110,6 +111,10 @@ logger = structlog.get_logger(settings.app_name)
 START_TIME = datetime.now(timezone.utc)
 
 app = FastAPI(debug=settings.debug)
+Instrumentator(
+    should_instrument_requests_inprogress=True,
+    inprogress_name="http_requests_in_progress",
+).instrument(app).expose(app, include_in_schema=False)
 
 
 def get_uptime() -> dict[str, Any]:

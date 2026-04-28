@@ -81,6 +81,24 @@ def test_get_health_ok(client: TestClient):
     datetime.fromisoformat(data["timestamp"])
 
 
+def test_metrics_endpoint_exposes_prometheus_metrics(client: TestClient):
+    client.get("/")
+    client.get("/health")
+
+    r = client.get("/metrics")
+    assert r.status_code == 200  # noqa: PLR2004
+    assert r.headers["content-type"].startswith("text/plain")
+
+    metrics = r.text
+    assert "# HELP http_requests_total Total number of requests" in metrics
+    assert "# TYPE http_requests_total counter" in metrics
+    assert 'http_requests_total{handler="/",method="GET",status="2xx"}' in metrics
+    assert 'http_requests_total{handler="/health",method="GET",status="2xx"}' in metrics
+    assert "# TYPE http_request_duration_seconds histogram" in metrics
+    assert "# TYPE http_request_duration_highr_seconds histogram" in metrics
+    assert "# TYPE http_requests_in_progress gauge" in metrics
+
+
 def test_404_is_returned_for_unknown_path(client: TestClient):
     r = client.get("/does-not-exist")
     assert r.status_code == 404  # noqa: PLR2004
