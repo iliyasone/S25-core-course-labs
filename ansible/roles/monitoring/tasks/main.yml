@@ -156,12 +156,12 @@
     url: "http://127.0.0.1:{{ monitoring_grafana_port }}/api/health"
     status_code: 200
     return_content: true
-  register: monitoring_grafana_health
+  register: monitoring_grafana_reload_health
   changed_when: false
   retries: "{{ (monitoring_wait_timeout | int / 5) | round(0, 'ceil') | int }}"
   delay: 5
   until:
-    - monitoring_grafana_health.status == 200
+    - monitoring_grafana_reload_health.status == 200
   when: >-
     monitoring_grafana_datasource_changed | bool
     or monitoring_grafana_prometheus_datasource.status == 404
@@ -197,7 +197,11 @@
   ansible.builtin.assert:
     that:
       - "'ready' in monitoring_loki_ready.content"
-      - monitoring_grafana_health.status == 200
+      - >-
+        (monitoring_grafana_reload_health | default({})).get(
+          'status',
+          monitoring_grafana_health.get('status', 0)
+        ) == 200
       - "'Prometheus Server is Healthy' in monitoring_prometheus_health.content"
       - >-
         monitoring_prometheus_required_jobs
