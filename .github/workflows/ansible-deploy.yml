@@ -205,8 +205,8 @@ jobs:
           echo "ANSIBLE_RUNTIME_INVENTORY=$RUNNER_TEMP/hosts.ini" >> "$GITHUB_ENV"
           echo "TARGET_HOST=$TARGET_HOST" >> "$GITHUB_ENV"
 
-      - name: Run full convergence playbook
-        run: uv run ansible-playbook -i "$ANSIBLE_RUNTIME_INVENTORY" playbooks/site.yml
+      - name: Run deployment playbook
+        run: uv run ansible-playbook -i "$ANSIBLE_RUNTIME_INVENTORY" playbooks/deploy.yml
 
       - name: Verify deployment from the runner
         run: |
