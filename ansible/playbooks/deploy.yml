@@ -2,6 +2,8 @@
 - name: Deploy application and monitoring
   hosts: webservers
   become: true
+  vars_files:
+    - ../group_vars/all.yml
 
   roles:
     - role: web_app
