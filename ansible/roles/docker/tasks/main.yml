@@ -1,7 +1,28 @@
 ---
 # Installation and access configuration are separated so the expensive parts stay taggable.
+- name: Check Docker CLI availability
+  ansible.builtin.command:
+    cmd: docker --version
+  register: docker_cli_check
+  changed_when: false
+  failed_when: false
+  tags:
+    - docker
+    - docker_install
+
+- name: Check Python Docker SDK availability
+  ansible.builtin.command:
+    cmd: python3 -c "import docker"
+  register: docker_python_sdk_check
+  changed_when: false
+  failed_when: false
+  tags:
+    - docker
+    - docker_install
+
 - name: Install Docker engine and CLI plugins
   become: true
+  when: docker_cli_check.rc != 0 or docker_python_sdk_check.rc != 0
   tags:
     - docker
     - docker_install
