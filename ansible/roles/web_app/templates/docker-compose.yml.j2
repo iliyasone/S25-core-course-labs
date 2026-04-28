@@ -19,7 +19,7 @@ services:
       {{ key }}: {{ value | to_json }}
 {% endfor %}
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:{{ web_app_internal_port }}/health', timeout=5).read()\""]
+      test: ["CMD-SHELL", "/app/.venv/bin/python -c \"import urllib.request; urllib.request.urlopen('http://localhost:{{ web_app_internal_port }}/health', timeout=5).read()\""]
       interval: {{ web_app_healthcheck_interval | to_json }}
       timeout: {{ web_app_healthcheck_timeout | to_json }}
       retries: {{ web_app_healthcheck_retries }}

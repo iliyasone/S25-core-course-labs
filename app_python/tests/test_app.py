@@ -1,8 +1,15 @@
 import io
 import json
+import os
 import re
 import socket as socket_module
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 import structlog
@@ -101,6 +108,53 @@ def test_metrics_endpoint_exposes_prometheus_metrics(client: TestClient):
     assert 'devops_info_endpoint_calls_total{endpoint="/"}' in metrics
     assert 'devops_info_endpoint_calls_total{endpoint="/health"}' in metrics
     assert "# TYPE devops_info_system_collection_seconds histogram" in metrics
+
+
+def test_script_entrypoint_starts_without_duplicate_metrics():
+    with socket_module.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+
+    app_dir = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "HOST": "127.0.0.1",
+        "PORT": str(port),
+        "DEBUG": "false",
+    }
+    process = subprocess.Popen(
+        [sys.executable, "app.py"],
+        cwd=app_dir,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    try:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if process.poll() is not None:
+                stdout, stderr = process.communicate()
+                pytest.fail(
+                    f"app.py exited early with {process.returncode}\n{stdout}\n{stderr}"
+                )
+            try:
+                with urllib.request.urlopen(
+                    f"http://127.0.0.1:{port}/health", timeout=0.5
+                ) as response:
+                    assert response.status == 200  # noqa: PLR2004
+                    return
+            except ConnectionError, TimeoutError, urllib.error.URLError:
+                time.sleep(0.1)
+        pytest.fail("app.py did not become healthy before timeout")
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
 
 
 def test_404_is_returned_for_unknown_path(client: TestClient):

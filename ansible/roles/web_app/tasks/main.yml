@@ -102,3 +102,18 @@
     - name: Report failed Compose deployment context
       ansible.builtin.debug:
         msg: "Deployment failed for {{ web_app_name }} in {{ web_app_compose_project_dir }}"
+
+    - name: Collect failed application container logs
+      ansible.builtin.command:
+        cmd: "docker logs --tail 100 {{ web_app_name }}"
+      register: web_app_failed_logs
+      changed_when: false
+      failed_when: false
+
+    - name: Show failed application container logs
+      ansible.builtin.debug:
+        msg: "{{ web_app_failed_logs.stdout_lines + web_app_failed_logs.stderr_lines }}"
+
+    - name: Fail application deployment
+      ansible.builtin.fail:
+        msg: "Application deployment failed for {{ web_app_name }} in {{ web_app_compose_project_dir }}"

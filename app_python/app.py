@@ -253,7 +253,7 @@ if __name__ == "__main__":
         app_version=settings.app_version,
     )
     uvicorn.run(
-        "app:app",
+        "app:app" if settings.debug else app,
         host=settings.host,
         port=settings.port,
         reload=settings.debug,
