@@ -158,6 +158,11 @@
     return_content: true
   register: monitoring_grafana_health
   changed_when: false
+  retries: "{{ (monitoring_wait_timeout | int / 5) | round(0, 'ceil') | int }}"
+  delay: 5
+  until:
+    - monitoring_grafana_health.status == 200
+    - monitoring_grafana_health.json.database == "ok"
   when: >-
     monitoring_grafana_datasource_changed | bool
     or monitoring_grafana_prometheus_datasource.status == 404
