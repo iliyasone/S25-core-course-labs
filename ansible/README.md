@@ -1,5 +1,11 @@
 [![Ansible Deployment](https://github.com/iliyasone/S25-core-course-labs/actions/workflows/ansible-deploy.yml/badge.svg)](https://github.com/iliyasone/S25-core-course-labs/actions/workflows/ansible-deploy.yml)
 
+# Get Ansible Vault
+
+```bash
+uv run ansible-vault view group_vars/all.yml
+```
+
 # Ansible Automation
 
 This directory contains the infrastructure convergence and deployment logic for Labs 5, 6, and 7.
