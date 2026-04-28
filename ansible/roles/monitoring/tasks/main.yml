@@ -162,7 +162,7 @@
   delay: 5
   until:
     - monitoring_grafana_health.status == 200
-    - monitoring_grafana_health.json.database == "ok"
+    - (monitoring_grafana_health.content | default('')) is search('"database"\\s*:\\s*"ok"')
   when: >-
     monitoring_grafana_datasource_changed | bool
     or monitoring_grafana_prometheus_datasource.status == 404
@@ -198,7 +198,7 @@
   ansible.builtin.assert:
     that:
       - "'ready' in monitoring_loki_ready.content"
-      - monitoring_grafana_health.json.database == "ok"
+      - (monitoring_grafana_health.content | default('')) is search('"database"\\s*:\\s*"ok"')
       - "'Prometheus Server is Healthy' in monitoring_prometheus_health.content"
       - >-
         monitoring_prometheus_required_jobs
