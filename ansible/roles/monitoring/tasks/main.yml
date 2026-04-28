@@ -19,6 +19,7 @@
     - "{{ monitoring_project_dir }}"
     - "{{ monitoring_project_dir }}/loki"
     - "{{ monitoring_project_dir }}/promtail"
+    - "{{ monitoring_project_dir }}/prometheus"
     - "{{ monitoring_project_dir }}/grafana/provisioning/datasources"
     - "{{ monitoring_project_dir }}/grafana/provisioning/dashboards"
     - "{{ monitoring_project_dir }}/grafana/dashboards"
@@ -37,12 +38,22 @@
       dest: loki/config.yml
     - src: promtail-config.yml.j2
       dest: promtail/config.yml
+    - src: prometheus.yml.j2
+      dest: prometheus/prometheus.yml
     - src: grafana-datasource.yml.j2
       dest: grafana/provisioning/datasources/loki.yml
     - src: grafana-dashboard-provider.yml.j2
       dest: grafana/provisioning/dashboards/default.yml
     - src: lab07-dashboard.json.j2
       dest: grafana/dashboards/lab07-logs.json
+
+- name: Copy Grafana metrics dashboard
+  ansible.builtin.copy:
+    src: grafana-app-dashboard.json
+    dest: "{{ monitoring_project_dir }}/grafana/dashboards/lab08-metrics.json"
+    owner: root
+    group: root
+    mode: "0644"
 
 - name: Start monitoring stack with Docker Compose
   community.docker.docker_compose_v2:
@@ -69,6 +80,12 @@
     port: "{{ monitoring_grafana_port }}"
     timeout: "{{ monitoring_wait_timeout }}"
 
+- name: Wait for Prometheus port to become reachable
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ monitoring_prometheus_port }}"
+    timeout: "{{ monitoring_wait_timeout }}"
+
 - name: Verify Loki readiness
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ monitoring_loki_port }}/ready"
@@ -85,9 +102,35 @@
   register: monitoring_grafana_health
   changed_when: false
 
+- name: Verify Prometheus health
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ monitoring_prometheus_port }}/-/healthy"
+    status_code: 200
+    return_content: true
+  register: monitoring_prometheus_health
+  changed_when: false
+
+- name: Read Prometheus active targets
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ monitoring_prometheus_port }}/api/v1/targets?state=active"
+    status_code: 200
+    return_content: true
+  register: monitoring_prometheus_targets_response
+  changed_when: false
+
 - name: Assert monitoring services are healthy
   ansible.builtin.assert:
     that:
       - "'ready' in monitoring_loki_ready.content"
       - monitoring_grafana_health.json.database == "ok"
+      - "'Prometheus Server is Healthy' in monitoring_prometheus_health.content"
+      - >-
+        monitoring_prometheus_required_jobs
+        | difference(
+            monitoring_prometheus_targets_response.json.data.activeTargets
+            | selectattr('health', 'equalto', 'up')
+            | map(attribute='labels.job')
+            | list
+          )
+        | length == 0
     fail_msg: "Monitoring stack did not become healthy"

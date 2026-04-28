@@ -15,6 +15,7 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+from prometheus_client import Counter, Histogram
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
@@ -110,6 +111,16 @@ logger = structlog.get_logger(settings.app_name)
 
 START_TIME = datetime.now(timezone.utc)
 
+endpoint_calls = Counter(
+    "devops_info_endpoint_calls_total",
+    "DevOps info service endpoint calls",
+    ["endpoint"],
+)
+system_info_duration = Histogram(
+    "devops_info_system_collection_seconds",
+    "Time spent collecting service and system information",
+)
+
 app = FastAPI(debug=settings.debug)
 Instrumentator(
     should_instrument_requests_inprogress=True,
@@ -133,47 +144,49 @@ def get_uptime() -> dict[str, Any]:
 @app.get("/")
 async def get_info(request: Request) -> dict[str, Any]:
     """Main endpoint - service and system information."""
-    uptime = get_uptime()
+    endpoint_calls.labels(endpoint="/").inc()
+    with system_info_duration.time():
+        uptime = get_uptime()
 
-    return {
-        "service": {
-            "name": settings.app_name,
-            "version": settings.app_version,
-            "description": "DevOps course info service made by @iliyasone",
-            "framework": "FastAPI",
-        },
-        "system": {
-            "hostname": socket.gethostname(),
-            "platform": platform.system(),
-            "platform_version": platform.platform(),
-            "architecture": platform.machine(),
-            "cpu_count": os.cpu_count(),
-            "python_version": platform.python_version(),
-        },
-        "runtime": {
-            "uptime_seconds": uptime["seconds"],
-            "uptime_human": uptime["human"],
-            "current_time": datetime.now(timezone.utc).isoformat(),
-            "timezone": "UTC",
-        },
-        "request": {
-            "client_ip": request.client.host if request.client else None,
-            "user_agent": request.headers.get("user-agent", ""),
-            "method": request.method,
-            "path": request.url.path,
-        },
-        "endpoints": [
-            {
-                "path": route.path,
-                "method": method,
-                "description": route.summary or route.description,
-            }
-            for route in app.routes
-            if isinstance(route, APIRoute)
-            for method in route.methods
-            if method not in {"HEAD", "OPTIONS"}
-        ],
-    }
+        return {
+            "service": {
+                "name": settings.app_name,
+                "version": settings.app_version,
+                "description": "DevOps course info service made by @iliyasone",
+                "framework": "FastAPI",
+            },
+            "system": {
+                "hostname": socket.gethostname(),
+                "platform": platform.system(),
+                "platform_version": platform.platform(),
+                "architecture": platform.machine(),
+                "cpu_count": os.cpu_count(),
+                "python_version": platform.python_version(),
+            },
+            "runtime": {
+                "uptime_seconds": uptime["seconds"],
+                "uptime_human": uptime["human"],
+                "current_time": datetime.now(timezone.utc).isoformat(),
+                "timezone": "UTC",
+            },
+            "request": {
+                "client_ip": request.client.host if request.client else None,
+                "user_agent": request.headers.get("user-agent", ""),
+                "method": request.method,
+                "path": request.url.path,
+            },
+            "endpoints": [
+                {
+                    "path": route.path,
+                    "method": method,
+                    "description": route.summary or route.description,
+                }
+                for route in app.routes
+                if isinstance(route, APIRoute)
+                for method in route.methods
+                if method not in {"HEAD", "OPTIONS"}
+            ],
+        }
 
 
 @app.middleware("http")
@@ -205,6 +218,7 @@ async def log_http_request(
 @app.get("/health")
 async def health():
     """Health check endpoint for monitoring."""
+    endpoint_calls.labels(endpoint="/health").inc()
 
     return {
         "status": "healthy",

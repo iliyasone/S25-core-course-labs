@@ -118,3 +118,4 @@ Do not fill the third column with generic evidence that a required lab was
 completed. Use neutral feature-specific emoji for non-bonus evidence, such as
 implementation details, automation, security checks, or deployment behavior.
 Keep unsolved labs as empty rows with only the first column populated.
+Fill partially solved labs with some yellow-in-progress-ish emoji (if points are less than 10) and use 3rd column as some *temporary* description -- current status.

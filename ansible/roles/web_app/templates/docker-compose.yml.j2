@@ -18,6 +18,12 @@ services:
 {% for key, value in web_app_labels | dictsort %}
       {{ key }}: {{ value | to_json }}
 {% endfor %}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:{{ web_app_internal_port }}/health', timeout=5).read()\""]
+      interval: {{ web_app_healthcheck_interval | to_json }}
+      timeout: {{ web_app_healthcheck_timeout | to_json }}
+      retries: {{ web_app_healthcheck_retries }}
+      start_period: {{ web_app_healthcheck_start_period | to_json }}
     networks:
       - web_app
 

@@ -97,6 +97,10 @@ def test_metrics_endpoint_exposes_prometheus_metrics(client: TestClient):
     assert "# TYPE http_request_duration_seconds histogram" in metrics
     assert "# TYPE http_request_duration_highr_seconds histogram" in metrics
     assert "# TYPE http_requests_in_progress gauge" in metrics
+    assert "# TYPE devops_info_endpoint_calls_total counter" in metrics
+    assert 'devops_info_endpoint_calls_total{endpoint="/"}' in metrics
+    assert 'devops_info_endpoint_calls_total{endpoint="/health"}' in metrics
+    assert "# TYPE devops_info_system_collection_seconds histogram" in metrics
 
 
 def test_404_is_returned_for_unknown_path(client: TestClient):

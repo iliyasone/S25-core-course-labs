@@ -7,7 +7,7 @@
 | Lab 05 - Ansible Fundamentals | ✅ 10 ⭐ +2.5 bonus | ☁️ Dynamic GCP inventory uses live cloud discovery instead of hardcoded IPs. |
 | Lab 06 - Advanced Ansible & CI/CD | ✅ 10 | 🔄 Dynamic CI deployment resolves the running GCP host at runtime and redeploys the app through Compose safely. |
 | Lab 07 - Observability & Logging with Loki Stack | ✅ 10 ⭐ +2.5 bonus | 📊 Ansible automation redeploys Loki, Promtail, Grafana, and the metrics/logging stack dynamically with Vault-backed Grafana credentials. |
-| Lab 08 - Metrics & Monitoring with Prometheus | 3 | 📈 Task 1 application metrics are implemented with `prometheus-fastapi-instrumentator`: `/metrics`, RED HTTP metrics, low-cardinality route labels, and active request gauge. |
+| Lab 08 - Metrics & Monitoring with Prometheus | ✅ 10 ⭐ +2.5 bonus | 📈 Prometheus scrapes app, Loki, Grafana, and itself; Grafana provisions Prometheus/Loki data sources plus RED metrics dashboard; Ansible deploys the complete stack idempotently. |
 | Lab 09 - Kubernetes Fundamentals |  |  |
 | Lab 10 - Helm Package Manager |  |  |
 | Lab 11 - Kubernetes Secrets & HashiCorp Vault |  |  |

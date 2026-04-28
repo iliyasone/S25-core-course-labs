@@ -58,6 +58,52 @@ services:
           cpus: {{ monitoring_promtail_cpu_reservation | to_json }}
           memory: {{ monitoring_promtail_memory_reservation | to_json }}
 
+  prometheus:
+    image: prom/prometheus:{{ monitoring_prometheus_version }}
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time={{ monitoring_prometheus_retention_time }}
+      - --storage.tsdb.retention.size={{ monitoring_prometheus_retention_size }}
+      - --web.enable-lifecycle
+    ports:
+      - "{{ monitoring_prometheus_port }}:9090"
+{% if monitoring_prometheus_extra_hosts | length > 0 %}
+    extra_hosts:
+{% for host_entry in monitoring_prometheus_extra_hosts %}
+      - {{ host_entry | to_json }}
+{% endfor %}
+{% endif %}
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    labels:
+      logging: "promtail"
+      app: "prometheus"
+      environment: {{ monitoring_environment_name | to_json }}
+    networks:
+      - logging
+    depends_on:
+      loki:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: {{ monitoring_prometheus_cpu_limit | to_json }}
+          memory: {{ monitoring_prometheus_memory_limit | to_json }}
+        reservations:
+          cpus: {{ monitoring_prometheus_cpu_reservation | to_json }}
+          memory: {{ monitoring_prometheus_memory_reservation | to_json }}
+
   grafana:
     image: grafana/grafana:{{ monitoring_grafana_version }}
     container_name: grafana
@@ -102,4 +148,5 @@ networks:
 
 volumes:
   loki-data:
+  prometheus-data:
   grafana-data:
