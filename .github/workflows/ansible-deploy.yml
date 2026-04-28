@@ -157,6 +157,6 @@ jobs:
 
       - name: Verify deployment from the runner
         run: |
-          curl --retry 12 --retry-all-errors --retry-delay 5 -fsS "http://$TARGET_HOST:5000/health"
-          curl --retry 12 --retry-all-errors --retry-delay 5 -fsS "http://$TARGET_HOST:5000/" > /dev/null
-          curl --retry 12 --retry-all-errors --retry-delay 5 -fsS "http://$TARGET_HOST:3000/api/health"
+          curl --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 5 --max-time 15 -fsS "http://$TARGET_HOST:5000/health"
+          curl --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 5 --max-time 15 -fsS "http://$TARGET_HOST:5000/" > /dev/null
+          curl --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 5 --max-time 15 -fsS "http://$TARGET_HOST:3000/api/health"
