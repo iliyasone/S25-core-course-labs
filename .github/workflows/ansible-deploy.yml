@@ -7,7 +7,9 @@ on:
       - "app_python/**"
       - "ansible/**"
       - "!ansible/docs/**"
+      - "!ansible/README.md"
       - "monitor/**"
+      - "!monitor/docs/**"
       - ".github/workflows/ansible-deploy.yml"
       - ".github/workflows/python-ci.yml"
   pull_request:
@@ -15,7 +17,9 @@ on:
     paths:
       - "ansible/**"
       - "!ansible/docs/**"
+      - "!ansible/README.md"
       - "monitor/**"
+      - "!monitor/docs/**"
       - ".github/workflows/ansible-deploy.yml"
   workflow_dispatch:
 
@@ -72,62 +76,49 @@ jobs:
           uv run ansible-playbook -i inventory/hosts.ini --syntax-check playbooks/deploy-monitoring.yml
           uv run ansible-playbook -i inventory/hosts.ini --syntax-check playbooks/site.yml
 
-  wait_for_python_ci:
-    name: Wait for Python CI when app changed
+  detect_deploy_changes:
+    name: Detect deploy changes
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      deploy: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.deploy }}
+      wait: ${{ github.event_name == 'push' && steps.filter.outputs.python || 'false' }}
     steps:
-      - name: Detect whether Python CI should run
-        id: detect_python_ci
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          COMMIT_SHA: ${{ github.sha }}
-          EVENT_NAME: ${{ github.event_name }}
-          BEFORE_SHA: ${{ github.event.before || '' }}
-        run: |
-          set -euo pipefail
+      - name: Check out repository
+        if: github.event_name == 'push'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 100
 
-          if [ "$EVENT_NAME" != "push" ]; then
-            echo "wait=false" >> "$GITHUB_OUTPUT"
-            echo "Python CI wait is only needed for push deploys."
-            exit 0
-          fi
-
-          if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
-            echo "wait=true" >> "$GITHUB_OUTPUT"
-            echo "Could not determine changed files; waiting for Python CI."
-            exit 0
-          fi
-
-          api() {
-            curl -fsSL \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "$1"
-          }
-
-          wait=false
-          while IFS= read -r path; do
-            case "$path" in
-              app_python/*|.github/workflows/python-ci.yml)
-                wait=true
-                ;;
-            esac
-          done < <(
-            api "https://api.github.com/repos/$REPOSITORY/compare/$BEFORE_SHA...$COMMIT_SHA" \
-              | jq -r '.files[]?.filename'
-          )
-
-          echo "wait=$wait" >> "$GITHUB_OUTPUT"
-          if [ "$wait" = "true" ]; then
-            echo "Python app changes detected; waiting for Python CI."
-          else
-            echo "No Python app changes detected; deploy can continue without Python CI."
-          fi
+      - name: Detect changed paths
+        if: github.event_name == 'push'
+        id: filter
+        uses: dorny/paths-filter@v4.0.1
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            python:
+              - 'app_python/**'
+              - '.github/workflows/python-ci.yml'
+            deploy:
+              - 'app_python/**'
+              - 'ansible/ansible.cfg'
+              - 'ansible/pyproject.toml'
+              - 'ansible/uv.lock'
+              - 'ansible/group_vars/**'
+              - 'ansible/inventory/**'
+              - 'ansible/playbooks/**'
+              - 'ansible/roles/**'
+              - 'ansible/collections/**'
+              - 'monitor/docker-compose.yml'
+              - 'monitor/loki/**'
+              - 'monitor/promtail/**'
+              - 'monitor/prometheus/**'
+              - 'monitor/grafana/provisioning/**'
+              - 'monitor/grafana/dashboards/**'
 
       - name: Wait for Python CI
-        if: steps.detect_python_ci.outputs.wait == 'true'
+        if: github.event_name == 'push' && steps.filter.outputs.python == 'true'
         uses: ArcticLampyrid/action-wait-for-workflow@v1.3.0
         timeout-minutes: 20
         with:
@@ -141,8 +132,8 @@ jobs:
     name: Deploy via dynamic GCP inventory
     needs:
       - lint
-      - wait_for_python_ci
-    if: github.event_name != 'pull_request'
+      - detect_deploy_changes
+    if: github.event_name != 'pull_request' && (github.event_name == 'workflow_dispatch' || needs.detect_deploy_changes.outputs.deploy == 'true')
     runs-on: ubuntu-latest
     defaults:
       run:

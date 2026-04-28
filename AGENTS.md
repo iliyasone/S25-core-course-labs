@@ -119,3 +119,7 @@ completed. Use neutral feature-specific emoji for non-bonus evidence, such as
 implementation details, automation, security checks, or deployment behavior.
 Keep unsolved labs as empty rows with only the first column populated.
 Fill partially solved labs with some yellow-in-progress-ish emoji (if points are less than 10) and use 3rd column as some *temporary* description -- current status.
+
+## GitHub CI/CD
+
+Use `gh` when checking GitHub Actions workflow, run, job, and CI/CD deployment status.

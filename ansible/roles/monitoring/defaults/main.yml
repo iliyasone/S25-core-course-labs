@@ -6,7 +6,7 @@ monitoring_wait_timeout: 120
 
 monitoring_loki_version: 3.0.0
 monitoring_promtail_version: 3.0.0
-monitoring_prometheus_version: 3.9.0
+monitoring_prometheus_version: v3.9.0
 monitoring_grafana_version: 12.3.1
 
 monitoring_loki_port: 3100
