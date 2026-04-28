@@ -31,6 +31,7 @@
     owner: root
     group: root
     mode: "0644"
+  register: monitoring_config_templates
   loop:
     - src: docker-compose.yml.j2
       dest: docker-compose.yml
@@ -46,6 +47,17 @@
       dest: grafana/provisioning/dashboards/default.yml
     - src: lab07-dashboard.json.j2
       dest: grafana/dashboards/lab07-logs.json
+
+- name: Track Grafana datasource provisioning changes
+  ansible.builtin.set_fact:
+    monitoring_grafana_datasource_changed: >-
+      {{
+        monitoring_config_templates.results
+        | selectattr('item.dest', 'equalto', 'grafana/provisioning/datasources/loki.yml')
+        | selectattr('changed', 'equalto', true)
+        | list
+        | length > 0
+      }}
 
 - name: Copy Grafana metrics dashboard
   ansible.builtin.copy:
@@ -101,6 +113,65 @@
     return_content: true
   register: monitoring_grafana_health
   changed_when: false
+
+- name: Check Prometheus datasource in Grafana
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ monitoring_grafana_port }}/api/datasources/uid/prometheus"
+    url_username: "{{ monitoring_grafana_admin_user }}"
+    url_password: "{{ monitoring_grafana_admin_password }}"
+    force_basic_auth: true
+    status_code:
+      - 200
+      - 404
+    return_content: true
+  register: monitoring_grafana_prometheus_datasource
+  changed_when: false
+  no_log: true
+
+- name: Restart Grafana when datasource provisioning must be reloaded
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_project_dir }}"
+    project_name: "{{ monitoring_project_name }}"
+    files:
+      - docker-compose.yml
+    services:
+      - grafana
+    dependencies: false
+    state: restarted
+  when: >-
+    monitoring_grafana_datasource_changed | bool
+    or monitoring_grafana_prometheus_datasource.status == 404
+
+- name: Wait for Grafana after datasource provisioning reload
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ monitoring_grafana_port }}"
+    timeout: "{{ monitoring_wait_timeout }}"
+  when: >-
+    monitoring_grafana_datasource_changed | bool
+    or monitoring_grafana_prometheus_datasource.status == 404
+
+- name: Verify Grafana health after datasource provisioning reload
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ monitoring_grafana_port }}/api/health"
+    status_code: 200
+    return_content: true
+  register: monitoring_grafana_health
+  changed_when: false
+  when: >-
+    monitoring_grafana_datasource_changed | bool
+    or monitoring_grafana_prometheus_datasource.status == 404
+
+- name: Verify Prometheus datasource in Grafana
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ monitoring_grafana_port }}/api/datasources/uid/prometheus"
+    url_username: "{{ monitoring_grafana_admin_user }}"
+    url_password: "{{ monitoring_grafana_admin_password }}"
+    force_basic_auth: true
+    status_code: 200
+    return_content: true
+  changed_when: false
+  no_log: true
 
 - name: Verify Prometheus health
   ansible.builtin.uri:
