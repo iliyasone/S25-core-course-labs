@@ -103,3 +103,18 @@ If `pyproject.toml` changes, also run:
 ```bash
 uv lock --check
 ```
+
+## Rubric Table
+
+When updating `RUBRIC.md`, keep it as a three-column Markdown table:
+
+- first column: lab name only
+- second column: completion mark and expected points, using `✅ 10` for solved
+  required labs and `✅ 10 ⭐ +N bonus` when official bonus points are claimed
+- third column: only meaningful extra features, bonus evidence, or notable
+  implementation beyond the required baseline
+
+Do not fill the third column with generic evidence that a required lab was
+completed. Use neutral feature-specific emoji for non-bonus evidence, such as
+implementation details, automation, security checks, or deployment behavior.
+Keep unsolved labs as empty rows with only the first column populated.
