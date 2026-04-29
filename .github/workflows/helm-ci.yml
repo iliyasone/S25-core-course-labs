@@ -1,0 +1,45 @@
+name: Helm CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+    paths:
+      - "k8s/python-app/**"
+      - ".github/workflows/helm-ci.yml"
+  pull_request:
+    branches: [ master ]
+    paths:
+      - "k8s/python-app/**"
+      - ".github/workflows/helm-ci.yml"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      HELM_VERSION: v4.1.4
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        run: |
+          curl -fsSLo helm.tar.gz "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          tar -zxf helm.tar.gz
+          sudo mv linux-amd64/helm /usr/local/bin/helm
+          helm version --short
+
+      - name: Lint chart
+        run: helm lint k8s/python-app
+
+      - name: Render default chart
+        run: helm template python-app k8s/python-app
+
+      - name: Render development environment
+        run: helm template python-app-dev k8s/python-app -f k8s/python-app/values-dev.yaml
+
+      - name: Render production environment
+        run: helm template python-app-prod k8s/python-app -f k8s/python-app/values-prod.yaml
+
+      - name: Client-side dry run
+        run: helm install --dry-run=client --debug python-app-dev k8s/python-app -f k8s/python-app/values-dev.yaml

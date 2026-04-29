@@ -1,0 +1,29 @@
+replicaCount: 1
+
+image:
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: NodePort
+  nodePort: 30080
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+readinessProbe:
+  initialDelaySeconds: 3
+  periodSeconds: 5
+
+livenessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+env:
+  APP_VERSION: "2026.04-helm-dev"
+  LOG_LEVEL: DEBUG

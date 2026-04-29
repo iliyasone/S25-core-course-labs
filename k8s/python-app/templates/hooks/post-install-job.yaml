@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "python-app.postInstallHookName" . }}
+  labels:
+    {{- include "python-app.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        {{- include "python-app.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: smoke-test
+          image: "{{ .Values.hooks.image.repository }}:{{ .Values.hooks.image.tag }}"
+          imagePullPolicy: {{ .Values.hooks.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              retries={{ .Values.hooks.smokeTestRetries }}
+              delay={{ .Values.hooks.smokeTestDelaySeconds }}
+              url="http://{{ include "python-app.fullname" . }}:{{ .Values.service.port }}/health"
+              until wget -qO- "$url"; do
+                retries=$((retries - 1))
+                if [ "$retries" -le 0 ]; then
+                  echo "post-install smoke test failed for $url" >&2
+                  exit 1
+                fi
+                sleep "$delay"
+              done
+              echo "post-install smoke test passed for $url"

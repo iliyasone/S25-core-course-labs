@@ -1,0 +1,18 @@
+Python app release {{ .Release.Name }} is deployed.
+
+{{- if eq .Values.service.type "NodePort" }}
+Local kind access:
+  curl http://localhost:{{ .Values.service.nodePort }}/health
+{{- else if eq .Values.service.type "LoadBalancer" }}
+LoadBalancer access:
+  kubectl get --namespace {{ .Release.Namespace }} svc {{ include "python-app.fullname" . }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "python-app.fullname" . }} 8080:{{ .Values.service.port }}
+  curl http://localhost:8080/health
+{{- else }}
+ClusterIP access:
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "python-app.fullname" . }} 8080:{{ .Values.service.port }}
+  curl http://localhost:8080/health
+{{- end }}
+
+Run the Helm test:
+  helm test {{ .Release.Name }}

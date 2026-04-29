@@ -1,0 +1,14 @@
+apiVersion: v2
+name: python-app
+description: Helm chart for the DevOps Python Info Service.
+type: application
+version: 0.1.0
+appVersion: "2026.04"
+keywords:
+  - python
+  - fastapi
+  - kubernetes
+maintainers:
+  - name: iliyasone
+sources:
+  - https://github.com/iliyasone/S25-core-course-labs

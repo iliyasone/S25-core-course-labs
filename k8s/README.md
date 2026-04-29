@@ -1,5 +1,9 @@
 # Lab 9 — Kubernetes Fundamentals
 
+> Lab 10 note: the raw `deployment.yml` and `service.yml` manifests documented
+> here were moved into `k8s/python-app/templates/` for the Helm chart. Use
+> `k8s/HELM.md` for the current deployment workflow.
+
 ## 1. Local Cluster Choice
 
 I chose **kind** for this lab.

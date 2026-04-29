@@ -9,7 +9,7 @@
 | Lab 07 - Observability & Logging with Loki Stack | ✅ 10 ⭐ +2.5 bonus | 📊 Ansible automation redeploys Loki, Promtail, Grafana, and the metrics/logging stack dynamically with Vault-backed Grafana credentials. |
 | Lab 08 - Metrics & Monitoring with Prometheus | ✅ 10 ⭐ +2.5 bonus | 📈 Prometheus scrapes app, Loki, Grafana, and itself; Grafana provisions Prometheus/Loki data sources plus RED metrics dashboard; Ansible deploys the complete stack idempotently. |
 | Lab 09 - Kubernetes Fundamentals | ✅ 10 | ☸️ bash script to check for no down-time rolling updates |
-| Lab 10 - Helm Package Manager |  |  |
+| Lab 10 - Helm Package Manager | ✅ 10 | 🔍 GitHub Actions Helm CI lints and renders default/dev/prod chart configurations. |
 | Lab 11 - Kubernetes Secrets & HashiCorp Vault |  |  |
 | Lab 12 - ConfigMaps & Persistent Volumes |  |  |
 | Lab 13 - GitOps with ArgoCD |  |  |

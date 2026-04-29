@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "python-app.preInstallHookName" . }}
+  labels:
+    {{- include "python-app.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        {{- include "python-app.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: validate-values
+          image: "{{ .Values.hooks.image.repository }}:{{ .Values.hooks.image.tag }}"
+          imagePullPolicy: {{ .Values.hooks.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              test -n "{{ .Values.image.repository }}"
+              test {{ .Values.app.containerPort }} -gt 0
+              test {{ .Values.service.port }} -gt 0
+              echo "pre-install validation passed for {{ include "python-app.fullname" . }}"
